@@ -77,7 +77,7 @@ class CodeForgeController implements DeltaTextInputClient {
   bool _lspFoldRangesAdjustedNotFetched = false;
   bool _inlayHintsVisible = false, documentHighlightsChanged = false;
 
-  CodeForgeController({this.lspConfig, this.tabSize = 4}) {
+  CodeForgeController({this.lspConfig}) {
     if (lspConfig != null) {
       (() async {
         try {
@@ -1438,9 +1438,19 @@ class CodeForgeController implements DeltaTextInputClient {
   /// When true, the user cannot modify the text content.
   bool readOnly = false;
 
-  // Tab size
-  int tabSize = 4;
-  String get tabSpace => ' ' * tabSize;
+  /// Use space instead of the `\t` character for tab key press.
+  bool useSpaceAsTab = false;
+
+  /// Custom tabSize for the editor.
+  int tabSize = 1;
+
+  /// The tabspace inserted on tab key press.
+  String get tabSpace {
+    if(useSpaceAsTab) {
+      return ' ' * tabSize;
+    }
+    return '\t' * tabSize;
+  }
 
   /// Whether the line structure has changed (lines added or removed).
   bool lineStructureChanged = false;
