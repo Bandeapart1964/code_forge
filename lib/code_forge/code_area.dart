@@ -5799,11 +5799,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
     final hasActiveFolds = _hasActiveFolds;
 
-    // For buffered edits that include newlines, using a single multi-line
-    // buffer paragraph can place the caret one visual line behind. Keep caret
-    // mapping aligned with gutter by always resolving logical line/column
-    // through offset-based controller helpers.
-
     if (!isRTL && _caretInfoCache.containsKey(cursorOffset)) {
       return _caretInfoCache[cursorOffset]!;
     }
@@ -10118,7 +10113,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     _currentPosition = localPosition;
 
     final contentX = localPosition.dx -
-        _gutterWidth -
+        (isRTL ? 0 : _gutterWidth) -
         (innerPadding?.left ?? 0) +
         (lineWrap ? 0 : _effectiveHScroll);
     final contentPosition = Offset(
