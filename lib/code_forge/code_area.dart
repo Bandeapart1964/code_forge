@@ -1,3 +1,4 @@
+import '../src/rust/api/editor.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -4116,58 +4117,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     return lo;
   }
 
-  static Map<int, List<int>> _computeAllFoldsInBackground(
-    Map<String, dynamic> params,
-  ) {
-    final lines = params['lines'] as List<String>;
-    final result = <int, List<int>>{};
-
-    const openers = {'{', '[', '('};
-    const closerToOpener = {'}': '{', ']': '[', ')': '('};
-
-    final Map<String, List<int>> stacks = {'{': [], '[': [], '(': []};
-
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      for (int c = 0; c < line.length; c++) {
-        final ch = line[c];
-        if (openers.contains(ch)) {
-          stacks[ch]!.add(i);
-        } else if (closerToOpener.containsKey(ch)) {
-          final opener = closerToOpener[ch]!;
-          final stack = stacks[opener]!;
-          if (stack.isNotEmpty) {
-            final startLine = stack.removeLast();
-            if (i > startLine) {
-              result.putIfAbsent(startLine, () => [startLine, i]);
-            }
-          }
-        }
-      }
-    }
-
-    for (int i = 0; i < lines.length; i++) {
-      if (result.containsKey(i)) continue;
-      final line = lines[i];
-      if (line.trim().endsWith(':')) {
-        final startIndent = line.length - line.trimLeft().length;
-        int endLine = i;
-        for (int j = i + 1; j < lines.length; j++) {
-          final next = lines[j];
-          if (next.trim().isEmpty) continue;
-          final nextIndent = next.length - next.trimLeft().length;
-          if (nextIndent <= startIndent) break;
-          endLine = j;
-        }
-        if (endLine > i) {
-          result[i] = [i, endLine];
-        }
-      }
-    }
-
-    return result;
-  }
-
   void _scheduleAsyncFoldComputation() {
     if (!enableFolding) return;
     if (controller.lspFoldRanges != null) return;
@@ -4184,16 +4133,12 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
     _asyncFoldComputationPending = true;
 
-    final lines = List<String>.from(controller.lines);
-
     try {
-      final computed = await compute(_computeAllFoldsInBackground, {
-        'lines': lines,
-      });
+      final computed = await foldsComputeAll(rope: controller.rope.core);
 
-      for (final entry in computed.entries) {
-        final startLine = entry.value[0];
-        final endLine = entry.value[1];
+      for (final rustFold in computed) {
+        final startLine = rustFold.startLine.toInt();
+        final endLine = rustFold.endLine.toInt();
         if (_foldRanges[startLine] == null) {
           final existing = controller.foldings[startLine];
           final fold = FoldRange(startLine, endLine);
@@ -4286,43 +4231,31 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     required this.isHoveringPopup,
     required this.context,
     required bool lineWrap,
-    required Map<String, TextStyle> editorTheme,
-    required Mode language,
-    required List<Mode> extraLanguages,
-    required bool readOnly,
+    required this._editorTheme,
+    required this._language,
+    required this._extraLanguages,
+    required this._readOnly,
     required bool enableFolding,
-    required bool enableGuideLines,
-    required bool enableGutter,
-    required bool enableGutterDivider,
+    required this._enableGuideLines,
+    required this._enableGutter,
+    required this._enableGutterDivider,
     required GutterStyle gutterStyle,
-    required CodeSelectionStyle selectionStyle,
-    required List<LspErrors> diagnostics,
+    required this._selectionStyle,
+    required this._diagnostics,
     this.languageId,
     this.lspConfig,
     this.filePath,
     this.matchHighlightStyle,
     this.onHoverSetByTap,
     EdgeInsets? innerPadding,
-    TextStyle? textStyle,
-    TextStyle? ghostTextStyle,
-    TextDirection textDirection = TextDirection.ltr,
-  }) : _editorTheme = editorTheme,
-       _ghostTextStyle = ghostTextStyle,
-       _language = language,
-       _extraLanguages = extraLanguages,
-       _readOnly = readOnly,
-       _enableFolding = enableFolding,
-       _enableGuideLines = enableGuideLines,
-       _enableGutter = enableGutter,
-       _enableGutterDivider = enableGutterDivider,
+    this._textStyle,
+    this._ghostTextStyle,
+    this._textDirection = TextDirection.ltr,
+  }) : _enableFolding = enableFolding,
        _gutterStyle = gutterStyle,
-       _selectionStyle = selectionStyle,
        _lineWrap = lineWrap,
        _innerPadding = innerPadding,
-       _textStyle = textStyle,
-       _diagnostics = diagnostics,
-       _matchHighlightStyle = matchHighlightStyle,
-       _textDirection = textDirection {
+       _matchHighlightStyle = matchHighlightStyle {
     final fontSize = _textStyle?.fontSize ?? 14.0;
     final fontFamily = _textStyle?.fontFamily;
     final color =
@@ -5628,61 +5561,26 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     return _foldedLineIndices.contains(lineIndex);
   }
 
-  int? _findMatchingBracket(String text, int pos) {
+  int? _findMatchingBracket(int pos) {
     if (_bracketCache.containsKey(pos)) {
       return _bracketCache[pos];
     }
 
-    const Map<String, String> pairs = {
-      '(': ')',
-      '{': '}',
-      '[': ']',
-      ')': '(',
-      '}': '{',
-      ']': '[',
-    };
-    const String openers = '({[';
-
-    if (pos < 0 || pos >= text.length) {
+    if (pos < 0 || pos >= controller.rope.length) {
       _bracketCache[pos] = null;
       return null;
     }
 
-    final char = text[pos];
-    if (!pairs.containsKey(char)) {
-      _bracketCache[pos] = null;
-      return null;
-    }
+    final match = foldsFindMatchingBracket(
+      rope: controller.rope.core,
+      targetOffset: pos,
+    );
 
-    final match = pairs[char]!;
-    final isForward = openers.contains(char);
+    final matchInt = match;
+    final result = matchInt == -1 ? null : matchInt;
 
-    int depth = 0;
-    if (isForward) {
-      for (int i = pos + 1; i < text.length; i++) {
-        if (text[i] == char) depth++;
-        if (text[i] == match) {
-          if (depth == 0) {
-            _bracketCache[pos] = i;
-            return i;
-          }
-          depth--;
-        }
-      }
-    } else {
-      for (int i = pos - 1; i >= 0; i--) {
-        if (text[i] == char) depth++;
-        if (text[i] == match) {
-          if (depth == 0) {
-            _bracketCache[pos] = i;
-            return i;
-          }
-          depth--;
-        }
-      }
-    }
-    _bracketCache[pos] = null;
-    return null;
+    _bracketCache[pos] = result;
+    return result;
   }
 
   String? _extractOpeningTagName(String lineText) {
@@ -5747,7 +5645,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     if (cursorOffset > 0 && cursorOffset <= textLength) {
       final before = text[cursorOffset - 1];
       if ('{}[]()'.contains(before)) {
-        final match = _findMatchingBracket(text, cursorOffset - 1);
+        final match = _findMatchingBracket(cursorOffset - 1);
         if (match != null) {
           return (cursorOffset - 1, match);
         }
@@ -5757,7 +5655,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     if (cursorOffset >= 0 && cursorOffset < textLength) {
       final after = text[cursorOffset];
       if ('{}[]()'.contains(after)) {
-        final match = _findMatchingBracket(text, cursorOffset);
+        final match = _findMatchingBracket(cursorOffset);
         if (match != null) {
           return (cursorOffset, match);
         }
@@ -7683,7 +7581,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       if (lastChar == '{' || lastChar == '(' || lastChar == '[') {
         final lineStartOffset = controller.getLineStartOffset(i);
         final bracketPos = lineStartOffset + trimmed.length - 1;
-        final matchPos = _findMatchingBracket(controller.text, bracketPos);
+        final matchPos = _findMatchingBracket(bracketPos);
 
         if (matchPos != null) {
           endLine = controller.getLineAtOffset(matchPos);

@@ -1,10 +1,10 @@
+import '../src/rust/api/editor.dart';
 import 'dart:async';
 import 'dart:io';
 
 import '../code_forge.dart';
 import 'rope.dart';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -209,7 +209,7 @@ class CodeForgeController implements DeltaTextInputClient {
         _debounceTimer?.cancel();
         _debounceTimer = Timer(const Duration(milliseconds: 200), () async {
           if (text != _previousValue) {
-            _wordCache = await compute(CodeForgeController._extractWords, text);
+            _wordCache = _extractWords();
           }
           _previousValue = text;
           _prevSelection = selection;
@@ -418,6 +418,7 @@ class CodeForgeController implements DeltaTextInputClient {
   VoidCallback? userCodeAction;
 
   Rope _rope = Rope('');
+  Rope get rope => _rope;
   TextSelection _selection = const TextSelection.collapsed(offset: 0);
 
   /// The text input connection to the platform.
@@ -2749,6 +2750,12 @@ class CodeForgeController implements DeltaTextInputClient {
     notifyListeners();
   }
 
+  @protected
+  @override
+  bool onFocusReceived() {
+    return true;
+  }
+
   Offset? Function()? getFloatingCursorStartPosition;
   int Function(Offset)? getTextOffsetForFloatingCursorPosition;
   Offset? _floatingCursorStartPosition;
@@ -4401,12 +4408,7 @@ class CodeForgeController implements DeltaTextInputClient {
     return foldings[lineIndex];
   }
 
-  static Set<String> _extractWords(String text) {
-    final regExp = RegExp(r'[\w\u0600-\u06FF\u08A0-\u08FF\u0590-\u05FF]+');
-    final set = <String>{};
-    for (final match in regExp.allMatches(text)) {
-      set.add(match.group(0)!);
-    }
-    return set;
+  Set<String> _extractWords() {
+    return wordsExtract(rope: _rope.core).toSet();
   }
 }
