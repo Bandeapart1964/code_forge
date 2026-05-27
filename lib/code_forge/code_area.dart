@@ -116,6 +116,10 @@ class CodeForge extends StatefulWidget {
   /// ```
   final TextStyle? ghostTextStyle;
 
+  /// Customize the scroll appearance.
+  /// Currently included vertical scrollbar only.
+  final ScrollbarDecoration? scrollbarDecoration;
+
   /// Padding inside the editor content area.
   final EdgeInsets? innerPadding;
 
@@ -251,8 +255,6 @@ class CodeForge extends StatefulWidget {
     this.undoController,
     this.editorTheme,
     this.language,
-    this.extraLanguages = const [],
-    this.ghostTextStyle,
     this.filePath,
     this.initialText,
     this.focusNode,
@@ -277,9 +279,12 @@ class CodeForge extends StatefulWidget {
     this.deleteFoldRangeOnDeletingFirstLine = false,
     this.selectionStyle,
     this.gutterStyle,
+    this.scrollbarDecoration,
+    this.ghostTextStyle,
     this.suggestionStyle,
     this.hoverDetailsStyle,
     this.matchHighlightStyle,
+    this.extraLanguages = const [],
     this.finderBuilder,
     this.findController,
   }) : _tabSize = tabSize ?? (useSpaceAsTab ? 2 : 1);
@@ -300,6 +305,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
   late final GutterStyle _gutterStyle;
   late final SuggestionStyle _suggestionStyle;
   late final HoverDetailsStyle _hoverDetailsStyle;
+  late final ScrollbarDecoration _scrollbarDecoration;
   late final ValueNotifier<List<dynamic>?> _suggestionNotifier;
   late final ValueNotifier<(Offset, Map<String, int>)?> _hoverNotifier;
   late final ValueNotifier<Map<String, dynamic>?> _hoverContentNotifier;
@@ -315,6 +321,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
   late final FindController _findController;
   late final VoidCallback _semanticTokensListener;
   late final VoidCallback _controllerListener;
+  late final VoidCallback _scrollbarLineNumberListener;
   late final bool _deleteFoldRangeOnDeletingFirstLine;
   late final VoidCallback _signatureListener, _hoverListener;
   late final VoidCallback _isHoveringPopupListener, _selectedSuggestionListener;
@@ -322,6 +329,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
   late bool _readOnly;
   final ValueNotifier<Offset> _offsetNotifier = ValueNotifier(Offset(0, 0));
   final ValueNotifier<Offset?> _lspActionOffsetNotifier = ValueNotifier(null);
+  final ValueNotifier<int> _scrollbarLineNumberIndicator = ValueNotifier(1);
   final _isMobile = Platform.isAndroid || Platform.isIOS;
   final _suggScrollController = ScrollController();
   final _actionScrollController = ScrollController();
@@ -411,6 +419,17 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
     if (widget.useSpaceAsTab != _controller.useSpaceAsTab) {
       _controller.useSpaceAsTab = widget.useSpaceAsTab;
     }
+
+    _scrollbarDecoration = widget.scrollbarDecoration ?? ScrollbarDecoration(
+      thumbColor: _editorTheme['root']?.color?.withAlpha(150),
+      thickness: 15,
+      lineNumberStyle: TextStyle(
+        color: _editorTheme['root']?.backgroundColor ?? Colors.black,
+        fontSize: widget.textStyle?.fontSize ?? 14,
+        fontFamily: widget.textStyle?.fontFamily,
+        fontWeight: widget.textStyle?.fontWeight ?? FontWeight.bold
+      )
+    );
 
     _gutterStyle =
         widget.gutterStyle ??
@@ -585,6 +604,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
 
     _controllerListener = () {
       _resetCursorBlink();
+      _updateScrollbarLineNumberIndicator();
 
       _isMobileSuggActive = _controller.currentlySelectedSuggestion != null;
 
@@ -621,6 +641,9 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
     };
 
     _controller.addListener(_controllerListener);
+
+  _scrollbarLineNumberListener = _updateScrollbarLineNumberIndicator;
+  _vscrollController.addListener(_scrollbarLineNumberListener);
 
     _hoverListener = () {
       final hov = _hoverNotifier.value;
@@ -721,6 +744,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
     _suggestionNotifier.addListener(_snippetNotifierListener);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScrollbarLineNumberIndicator();
       if (widget.autoFocus) {
         _focusNode.requestFocus();
       } else {
@@ -744,6 +768,18 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
         _controller.connection = _connection;
       }
     });
+  }
+
+  void _updateScrollbarLineNumberIndicator() {
+    final renderObject = _codeFieldKey.currentContext?.findRenderObject();
+    if (renderObject is! _CodeFieldRenderer) return;
+
+    final lineNumber = renderObject.getScrollbarLineNumberAtScrollOffset(
+      _vscrollController.hasClients ? _vscrollController.offset : 0.0,
+    );
+    if (_scrollbarLineNumberIndicator.value != lineNumber) {
+      _scrollbarLineNumberIndicator.value = lineNumber;
+    }
   }
 
   void _scrollToSelectedSuggestion() {
@@ -962,6 +998,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
   void dispose() {
     _controller.removeListener(_controllerListener);
     _controller.semanticTokens.removeListener(_semanticTokensListener);
+    _vscrollController.removeListener(_scrollbarLineNumberListener);
     _lspSignatureNotifier.removeListener(_signatureListener);
     _hoverNotifier.removeListener(_hoverListener);
     _isHoveringPopup.removeListener(_isHoveringPopupListener);
@@ -1478,9 +1515,38 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
                 children: [
                   Directionality(
                     textDirection: widget.textDirection,
-                    child: RawScrollbar(
+                    child: CustomScrollbar(
                       controller: _vscrollController,
+                      lineNumberNotifier: _scrollbarLineNumberIndicator,
+                      textDirection: widget.textDirection,
+                      borderRadius: _scrollbarDecoration.borderRadius,
+                      showLineNumberIndicator: _scrollbarDecoration.showLineNumberIndicator,
+                      thickness: _scrollbarDecoration.thickness,
+                      thumbColor: _scrollbarDecoration.thumbColor,
+                      interactive: _scrollbarDecoration.interactive,
+                      crossAxisMargin: _scrollbarDecoration.crossAxisMargin,
+                      mainAxisMargin: _scrollbarDecoration.mainAxisMargin,
+                      scrollbarOrientation: _scrollbarDecoration.scrollbarOrientation,
+                      trackBorderColor: _scrollbarDecoration.trackBorderColor,
+                      fadeDuration: _scrollbarDecoration.fadeDuration,
+                      timeToFade: _scrollbarDecoration.timeToFade,
+                      trackRadius: _scrollbarDecoration.trackRadius,
+                      trackVisibility: _scrollbarDecoration.trackVisibility,
+                      minOverscrollLength: _scrollbarDecoration.minOverscrollLength,
+                      minThumbLength: _scrollbarDecoration.minThumbLength,
+                      padding: _scrollbarDecoration.padding,
+                      pressDuration: _scrollbarDecoration.pressDuration,
+                      trackColor: _scrollbarDecoration.trackColor,
+                      notificationPredicate: _scrollbarDecoration.notificationPredicate,
                       thumbVisibility: _isHovering,
+                      lineNumberStyle:
+                        _scrollbarDecoration.lineNumberStyle
+                        ?? TextStyle(
+                            color: _editorTheme['root']?.backgroundColor
+                                  ?? Colors.black,
+                            fontSize: widget.textStyle?.fontSize ?? 14,
+                            fontFamily: widget.textStyle?.fontFamily
+                        ),
                       child: Transform(
                         alignment: Alignment.center,
                         transform: widget.textDirection == TextDirection.rtl
@@ -4048,7 +4114,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
   bool _selectionActive = false, _isDragging = false;
   bool _draggingStartHandle = false, _draggingEndHandle = false;
   bool _showBubble = false, _draggingCHandle = false, _readOnly;
-  bool _suppressCodeActionDismissOnce = false;
   bool _isDeferringLayout = false, _hasCachedHeight = false;
   bool _isCachedHeightExact = false;
   bool _caretSyncAfterLayoutScheduled = false;
@@ -4247,7 +4312,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     final currentFile = filePath;
     if (config == null || currentFile == null) return;
     if (!config.capabilities.semanticHighlighting) return;
-    if (!config.supportsSemanticTokensPull) return;
     if (!config.isInitialized || controller.openedFile != currentFile) return;
     if (controller.lineCount <= 0) return;
 
@@ -4318,30 +4382,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     final p = builder.build();
     p.layout(ui.ParagraphConstraints(width: width ?? double.infinity));
     return p;
-  }
-
-  double _measureLeadingWhitespaceWidth(String lineText) {
-    final leadingWhitespaceLength = lineText.length - lineText.trimLeft().length;
-    if (leadingWhitespaceLength <= 0) {
-      return 0;
-    }
-
-    final tabSize = max(1, controller.tabSize);
-    final normalized = StringBuffer();
-    var visualColumn = 0;
-
-    for (final rune in lineText.substring(0, leadingWhitespaceLength).runes) {
-      if (rune == 0x09) {
-        final spaces = tabSize - (visualColumn % tabSize);
-        normalized.write(' ' * spaces);
-        visualColumn += spaces;
-      } else {
-        normalized.writeCharCode(rune);
-        visualColumn += 1;
-      }
-    }
-
-    return _buildParagraph(normalized.toString()).longestLine;
   }
 
   ui.Paragraph _buildHighlightedParagraph(
@@ -5153,6 +5193,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       final delta = newText.length - previousText.length;
       final removedLength = max(insertedText.length - delta, 0);
       final oldEnd = dirtyRange.start + removedLength;
+      final deletedText = previousText.substring(dirtyRange.start, oldEnd);
       final editLine = controller.getLineAtOffset(dirtyRange.start);
 
       _syntaxHighlighter.applyDocumentEdit(
@@ -5160,6 +5201,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
         dirtyRange.start,
         oldEnd,
         insertedText,
+        deletedText,
         newText,
       );
 
@@ -6352,6 +6394,18 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
   }
 
   Offset getCaretOffset() => _getCaretInfo().offset;
+
+  int getScrollbarLineNumberAtScrollOffset(double scrollOffset) {
+    if (!vscrollController.hasClients || controller.lineCount == 0) {
+      return 1;
+    }
+
+    final lineIndex = _findVisibleLineByYPosition(scrollOffset).clamp(
+      0,
+      controller.lineCount - 1,
+    );
+    return lineIndex + 1;
+  }
 
   int getTextOffsetForPosition(Offset position) {
     return _getTextOffsetFromPosition(position);
@@ -7619,27 +7673,17 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
             );
             actionBulbPainter.layout();
 
-            final lineText = _lineTextCache[i] ?? controller.getLineText(i);
-            final leadingWhitespaceWidth = _measureLeadingWhitespaceWidth(
-              lineText,
-            );
-
             final bulbX = isRTL
                 ? (isMobile
                       ? offset.dx + size.width - actionBulbPainter.width - 4
                       : offset.dx + size.width - _gutterWidth + 4)
-                : (leadingWhitespaceWidth >= actionBulbPainter.width + 4
-                  ? offset.dx +
-                    _gutterWidth +
-                    (innerPadding?.left ?? 0) -
-                    (lineWrap ? 0 : _effectiveHScroll)
-                  : (isMobile
-                    ? offset.dx +
-                      _gutterWidth -
-                      actionBulbPainter.width -
-                      (baseLineNumberStyle.fontSize ?? 14) +
-                      4
-                    : offset.dx + 4));
+                : (isMobile
+                      ? offset.dx +
+                            _gutterWidth -
+                            actionBulbPainter.width -
+                            (baseLineNumberStyle.fontSize ?? 14) +
+                            4
+                      : offset.dx + 4);
             final bulbY =
                 offset.dy +
                 (innerPadding?.top ?? 0) +
@@ -10449,7 +10493,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
           if (entry.value.contains(localPosition)) {
             suggestionNotifier.value = null;
             lspActionOffsetNotifier.value = event.localPosition;
-            _suppressCodeActionDismissOnce = true;
             return;
           }
         }
@@ -10503,12 +10546,8 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
           if (lspActionNotifier.value != null ||
               lspActionOffsetNotifier.value != null) {
-            if (_suppressCodeActionDismissOnce) {
-              _suppressCodeActionDismissOnce = false;
-            } else {
-              lspActionNotifier.value = null;
-              lspActionOffsetNotifier.value = null;
-            }
+            lspActionNotifier.value = null;
+            lspActionOffsetNotifier.value = null;
           }
         };
 
@@ -10568,12 +10607,8 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
             signatureNotifier.value = null;
           }
           if (lspActionNotifier.value != null) {
-            if (_suppressCodeActionDismissOnce) {
-              _suppressCodeActionDismissOnce = false;
-            } else {
-              lspActionNotifier.value = null;
-              lspActionOffsetNotifier.value = null;
-            }
+            lspActionNotifier.value = null;
+            lspActionOffsetNotifier.value = null;
           }
         };
 
@@ -10753,14 +10788,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
   @override
   MouseCursor get cursor {
-    if (_actionBulbRects.isNotEmpty) {
-      for (final rect in _actionBulbRects.values) {
-        if (rect.contains(_currentPosition)) {
-          return SystemMouseCursors.click;
-        }
-      }
-    }
-
     final isInGutter = isRTL
         ? _currentPosition.dx > size.width - _gutterWidth
         : _currentPosition.dx >= 0 && _currentPosition.dx < _gutterWidth;
@@ -10789,6 +10816,14 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       final foldRange = _getFoldRangeAtLine(hoveredLine);
       if (foldRange != null && foldRange.endIndex > foldRange.startIndex) {
         return SystemMouseCursors.click;
+      }
+
+      if (_actionBulbRects.isNotEmpty) {
+        for (final rect in _actionBulbRects.values) {
+          if (rect.contains(_currentPosition)) {
+            return SystemMouseCursors.click;
+          }
+        }
       }
 
       return MouseCursor.defer;

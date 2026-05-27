@@ -138,18 +138,21 @@ class SyntaxHighlighter {
     int editStart,
     int oldEnd,
     String insertedText,
+    String deletedText,
     String fullText,
   ) {
     _documentVersion++;
     final insertedLineBreaks = '\n'.allMatches(insertedText).length;
+    final deletedLineBreaks = '\n'.allMatches(deletedText).length;
+    final lineBreakDelta = insertedLineBreaks - deletedLineBreaks;
     final isPureInsertion = oldEnd == editStart;
-
-    if (insertedLineBreaks > 0 && isPureInsertion) {
+    final isPureDeletion = insertedText.isEmpty && oldEnd > editStart;
+    if (lineBreakDelta != 0 && (isPureInsertion || isPureDeletion)) {
       final shiftedSemanticSpans = <int, List<SemanticWordSpan>>{};
       for (final entry in _lineSemanticSpans.entries) {
         final lineIndex = entry.key;
         if (lineIndex > editLine) {
-          shiftedSemanticSpans[lineIndex + insertedLineBreaks] = entry.value;
+          shiftedSemanticSpans[lineIndex + lineBreakDelta] = entry.value;
         } else {
           shiftedSemanticSpans[lineIndex] = entry.value;
         }

@@ -1225,11 +1225,9 @@ class CustomIcons {
       'Method': 'assets/icons/method.ttf',
       'Variable': 'assets/icons/variable.ttf',
       'Class': 'assets/icons/class.ttf',
-      'Reference': 'assets/icons/reference.ttf',
       'Struct': 'assets/icons/struct.ttf',
       'Event': 'assets/icons/event.ttf',
       'Operator': 'assets/icons/operator.ttf',
-      'Parameter': 'assets/icons/parameter.ttf',
       'Interface': 'assets/icons/interface.ttf',
       'Field': 'assets/icons/field.ttf',
     };

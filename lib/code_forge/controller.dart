@@ -2754,6 +2754,7 @@ class CodeForgeController implements DeltaTextInputClient {
                 selectionBefore,
                 _selection,
               );
+              dirtyRegion = TextRange(start: foldStart, end: foldStart);
               _imeSelectionNeedsResync = true;
               _invalidateImeSnapshotAndScheduleSync();
               notifyListeners();
@@ -2770,6 +2771,10 @@ class CodeForgeController implements DeltaTextInputClient {
       dirtyLine = _rope.getLineAtOffset(sel.start);
 
       _recordDeletion(sel.start, deletedText, selectionBefore, _selection);
+      dirtyRegion = TextRange(start: sel.start, end: sel.start);
+      if (deletedText.contains('\n')) {
+        lineStructureChanged = true;
+      }
       _imeSelectionNeedsResync = true;
       _invalidateImeSnapshotAndScheduleSync();
       notifyListeners();
@@ -2799,6 +2804,7 @@ class CodeForgeController implements DeltaTextInputClient {
       _selection = TextSelection.collapsed(offset: deleteOffset);
       dirtyLine = _rope.getLineAtOffset(deleteOffset);
       lineStructureChanged = true;
+      dirtyRegion = TextRange(start: deleteOffset, end: deleteOffset);
 
       _recordDeletion(deleteOffset, '\n', selectionBefore, _selection);
       _imeSelectionNeedsResync = true;
@@ -2820,6 +2826,7 @@ class CodeForgeController implements DeltaTextInputClient {
         _currentVersion++;
 
         bufferNeedsRepaint = true;
+        dirtyRegion = TextRange(start: deleteOffset, end: deleteOffset);
 
         _recordDeletion(deleteOffset, deletedText, selectionBefore, _selection);
         _imeSelectionNeedsResync = true;
@@ -2847,6 +2854,7 @@ class CodeForgeController implements DeltaTextInputClient {
       dirtyLine = lineIndex;
 
       bufferNeedsRepaint = true;
+        dirtyRegion = TextRange(start: deleteOffset, end: deleteOffset);
 
       _recordDeletion(deleteOffset, deletedText, selectionBefore, _selection);
       _imeSelectionNeedsResync = true;
@@ -2934,6 +2942,7 @@ class CodeForgeController implements DeltaTextInputClient {
                 selectionBefore,
                 _selection,
               );
+              dirtyRegion = TextRange(start: foldStart, end: foldStart);
               _invalidateImeSnapshotAndScheduleSync();
               notifyListeners();
               return;
@@ -2949,6 +2958,10 @@ class CodeForgeController implements DeltaTextInputClient {
       dirtyLine = _rope.getLineAtOffset(sel.start);
 
       _recordDeletion(sel.start, deletedText, selectionBefore, _selection);
+      dirtyRegion = TextRange(start: sel.start, end: sel.start);
+      if (deletedText.contains('\n')) {
+        lineStructureChanged = true;
+      }
       _invalidateImeSnapshotAndScheduleSync();
       notifyListeners();
       return;
@@ -2977,6 +2990,7 @@ class CodeForgeController implements DeltaTextInputClient {
       _currentVersion++;
       dirtyLine = _rope.getLineAtOffset(deleteOffset);
       lineStructureChanged = true;
+      dirtyRegion = TextRange(start: deleteOffset, end: deleteOffset);
 
       _recordDeletion(deleteOffset, '\n', selectionBefore, _selection);
       _invalidateImeSnapshotAndScheduleSync();
@@ -2996,6 +3010,7 @@ class CodeForgeController implements DeltaTextInputClient {
         _currentVersion++;
 
         bufferNeedsRepaint = true;
+        dirtyRegion = TextRange(start: deleteOffset, end: deleteOffset);
 
         _recordDeletion(deleteOffset, deletedText, selectionBefore, _selection);
         _imeSelectionNeedsResync = true;
