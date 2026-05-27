@@ -409,3 +409,5 @@ This release establishes **CodeForge** as a powerful, production-ready code edit
     <img src="https://raw.githubusercontent.com/heckmon/code_forge/refs/heads/main/gifs/1M.gif" alt="CodeForge Demo" width="800"/><sub><br>Smooth editing in 1M+ lines of code, tested on a low end PC with pentium dual core CPU and no dedicated graphics card.</sub>
   </p>
 
+## 10.0.1:
+  - Update README.md
