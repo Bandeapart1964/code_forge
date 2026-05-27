@@ -134,8 +134,14 @@ To see working examples of all CodeForge features including AI Code Completion, 
 dependencies:
   code_forge: ^10.10.0
 ```
-
-Then run:
+3 . Add `await RustLib.init();` in your main function:
+```dart
+void main() async {
+  await RustLib.init(); // Add this line
+  runApp(const MyApp());
+}
+```
+ - 4 . Then run:
 
 ```bash
 flutter pub get
