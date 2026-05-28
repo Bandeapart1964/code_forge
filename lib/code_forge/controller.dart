@@ -1476,6 +1476,15 @@ class CodeForgeController implements DeltaTextInputClient {
 
       if (fold.endIndex < editLine) {
         adjustedLspFoldRanges[oldStartIndex] = fold;
+      } else if (fold.startIndex == editLine) {
+        final newStartIndex = fold.startIndex + lineDelta;
+        final newEndIndex = fold.endIndex + lineDelta;
+        if (newStartIndex >= 0 && newEndIndex >= newStartIndex) {
+          final newFold = FoldRange(newStartIndex, newEndIndex);
+          newFold.isFolded = fold.isFolded;
+          newFold.originallyFoldedChildren = fold.originallyFoldedChildren;
+          adjustedLspFoldRanges[newStartIndex] = newFold;
+        }
       } else if (fold.startIndex <= editLine && fold.endIndex >= editLine) {
         final newEndIndex = fold.endIndex + lineDelta;
         if (newEndIndex >= oldStartIndex) {
@@ -2742,6 +2751,7 @@ class CodeForgeController implements DeltaTextInputClient {
               );
               lineStructureChanged = true;
               foldings.remove(foldToDelete.startIndex);
+              _rebuildFoldSortedCache();
 
               for (final fold in foldings.values) {
                 if (fold != null) {
@@ -2930,6 +2940,7 @@ class CodeForgeController implements DeltaTextInputClient {
               );
               lineStructureChanged = true;
               foldings.remove(foldToDelete.startIndex);
+              _rebuildFoldSortedCache();
 
               for (final fold in foldings.values) {
                 if (fold != null) {

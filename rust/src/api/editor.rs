@@ -523,7 +523,16 @@ pub fn guides_compute_viewport(
             if c == ' ' {
                 leading_cols += 1;
             } else if c == '\t' {
-                leading_cols += _tab_size;
+                        leading_cols += if _tab_size > 0 {
+                            let remainder = leading_cols % _tab_size;
+                            if remainder == 0 {
+                                _tab_size
+                            } else {
+                                _tab_size - remainder
+                            }
+                        } else {
+                            1
+                        };
             } else {
                 break;
             }
@@ -583,7 +592,16 @@ pub fn guides_compute_viewport(
                     if c == ' ' {
                         next_leading += 1;
                     } else if c == '\t' {
-                        next_leading += _tab_size;
+                        next_leading += if _tab_size > 0 {
+                            let remainder = next_leading % _tab_size;
+                            if remainder == 0 {
+                                _tab_size
+                            } else {
+                                _tab_size - remainder
+                            }
+                        } else {
+                            1
+                        };
                     } else {
                         break;
                     }
@@ -632,7 +650,16 @@ pub fn guides_compute_viewport(
                     if c == ' ' {
                         check_leading += 1;
                     } else if c == '\t' {
-                        check_leading += _tab_size;
+                        check_leading += if _tab_size > 0 {
+                            let remainder = check_leading % _tab_size;
+                            if remainder == 0 {
+                                _tab_size
+                            } else {
+                                _tab_size - remainder
+                            }
+                        } else {
+                            1
+                        };
                     } else {
                         break;
                     }

@@ -107,7 +107,6 @@ impl RopeBridge {
             }
         };
 
-        // update stored selection and return the new selection
         *self.selection.write().unwrap() = SelectionState {
             base_offset: new_selection.base_offset.min(rope_write.len_chars()),
             extent_offset: new_selection.extent_offset.min(rope_write.len_chars()),
@@ -187,8 +186,6 @@ impl RopeBridge {
     
     #[flutter_rust_bridge::frb(sync)]
     pub fn copy(&self) -> Self {
-        // Keep `copy` for compatibility but forward to `deep_clone` which
-        // makes the cloning intent explicit.
         self.deep_clone()
     }
 
@@ -202,8 +199,6 @@ impl RopeBridge {
 
     #[flutter_rust_bridge::frb(sync)]
     pub fn cached_lines(&self) -> Vec<String> {
-        // Delegate to the range variant to avoid duplicating logic that
-        // allocates per-line strings.
         let rope = self.rope.read().unwrap();
         let total = rope.len_lines();
         drop(rope);
@@ -336,8 +331,6 @@ fn compute_bidi_segments(rope: &RustRope, start: usize, end: usize) -> Vec<BiDiS
 
     let slice = rope.slice(start..end);
 
-    // Fast-path: if the start of the line is ASCII-only it's very likely
-    // the whole line is LTR — avoid scanning every char for the common case.
     if slice.len_chars() <= 32 || slice.chars().take(32).all(|c| c.is_ascii()) {
         return vec![BiDiSegment { start, end, direction: TextDirection::Ltr }];
     }

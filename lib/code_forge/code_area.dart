@@ -5277,11 +5277,14 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
       if (enableFolding) {
         final editLine = insertionLine;
+        final sourceFoldRanges = controller.lineStructureChanged
+            ? controller.foldings
+            : _foldRanges;
 
         final adjustedFoldRanges = <int, FoldRange?>{};
         final adjustedControllerFoldings = <int, FoldRange?>{};
 
-        for (final entry in _foldRanges.entries) {
+        for (final entry in sourceFoldRanges.entries) {
           final oldStartIndex = entry.key;
           final fold = entry.value;
           if (fold == null) continue;
@@ -5291,7 +5294,19 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
             if (fold.isFolded) {
               adjustedControllerFoldings[oldStartIndex] = fold;
             }
-          } else if (fold.startIndex <= editLine && fold.endIndex >= editLine) {
+          } else if (fold.startIndex == editLine) {
+            final newStartIndex = fold.startIndex + lineDelta;
+            final newEndIndex = fold.endIndex + lineDelta;
+            if (newStartIndex >= 0 && newEndIndex >= newStartIndex) {
+              final newFold = FoldRange(newStartIndex, newEndIndex);
+              newFold.isFolded = fold.isFolded;
+              newFold.originallyFoldedChildren = fold.originallyFoldedChildren;
+              adjustedFoldRanges[newStartIndex] = newFold;
+              if (newFold.isFolded) {
+                adjustedControllerFoldings[newStartIndex] = newFold;
+              }
+            }
+          } else if (fold.startIndex < editLine && fold.endIndex >= editLine) {
             final newEndIndex = fold.endIndex + lineDelta;
             if (newEndIndex >= oldStartIndex) {
               final newFold = FoldRange(oldStartIndex, newEndIndex);
@@ -5571,27 +5586,20 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     }
 
     if (_foldRanges.containsKey(lineIndex)) {
+      final cachedFold = _foldRanges[lineIndex];
+      if (cachedFold != null && line.trim().endsWith(':')) {
+        final exactFold = _computeIndentFoldRangeForLine(lineIndex, line);
+        if (exactFold != null && exactFold.endIndex < cachedFold.endIndex) {
+          _foldRanges[lineIndex] = exactFold;
+          return exactFold;
+        }
+      }
       return _foldRanges[lineIndex];
     }
 
-    if (line.trim().endsWith(':')) {
-      final startIndent = line.length - line.trimLeft().length;
-      int endLine = lineIndex;
-
-      final maxIndentScan = min(lineIndex + 5000, controller.lineCount);
-      for (int j = lineIndex + 1; j < maxIndentScan; j++) {
-        final next = controller.getLineText(j);
-        if (next.trim().isEmpty) continue;
-        final nextIndent = next.length - next.trimLeft().length;
-        if (nextIndent <= startIndent) break;
-        endLine = j;
-      }
-
-      if (endLine > lineIndex) {
-        final fold = FoldRange(lineIndex, endLine);
-        _foldRanges[lineIndex] = fold;
-        return fold;
-      }
+    final colonFold = _computeIndentFoldRangeForLine(lineIndex, line);
+    if (colonFold != null) {
+      return colonFold;
     }
 
     final openingTagName = _extractOpeningTagName(line);
@@ -5600,6 +5608,58 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       if (matchLine != null && matchLine > lineIndex) {
         return FoldRange(lineIndex, matchLine);
       }
+    }
+
+    return null;
+  }
+
+  int _measureLeadingIndentColumns(String lineText) {
+    final tabSize = controller.tabSize;
+    int columns = 0;
+
+    for (int i = 0; i < lineText.length; i++) {
+      final ch = lineText[i];
+      if (ch == ' ') {
+        columns += 1;
+      } else if (ch == '\t') {
+        final nextStop = tabSize <= 0
+            ? columns + 1
+            : columns + (tabSize - (columns % tabSize));
+        columns = nextStop;
+      } else {
+        break;
+      }
+    }
+
+    return columns;
+  }
+
+  FoldRange? _computeIndentFoldRangeForLine(int lineIndex, String line) {
+    if (!line.trim().endsWith(':')) return null;
+
+    final startIndent = _measureLeadingIndentColumns(line);
+    int endLine = lineIndex;
+
+    final maxIndentScan = min(lineIndex + 5000, controller.lineCount);
+    for (int j = lineIndex + 1; j < maxIndentScan; j++) {
+      final next = controller.getLineText(j);
+      if (next.trim().isEmpty) continue;
+      final nextIndent = _measureLeadingIndentColumns(next);
+
+      if (nextIndent < startIndent) {
+        break;
+      }
+
+      if (nextIndent == startIndent) {
+        break;
+      }
+      endLine = j;
+    }
+
+    if (endLine > lineIndex) {
+      final fold = FoldRange(lineIndex, endLine);
+      _foldRanges[lineIndex] = fold;
+      return fold;
     }
 
     return null;
@@ -5631,7 +5691,6 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     if (!_asyncFoldComputationPending) {
       _scheduleAsyncFoldComputation();
     }
-
     return null;
   }
 
@@ -5648,26 +5707,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
         for (var f in _foldRanges.values.where((f) => f != null))
           f!.startIndex: f,
       };
-      // Update LayoutMap for the affected lines so the SumTree reflects
-      // folded children (zero height) immediately. Keep the first line
-      // of the fold visible and mark inner lines as folded.
-      try {
-        final lineCount = controller.lineCount;
-        final start = fold.startIndex + 1;
-        final end = fold.endIndex < lineCount ? fold.endIndex : lineCount - 1;
-        for (int i = start; i <= end; i++) {
-          if (i < 0 || i >= lineCount) continue;
-          _layoutMap.updateLine(
-            lineIdx: BigInt.from(i),
-            lenChars: BigInt.from(controller.getLineText(i).length),
-            height: _lineHeight,
-            isFolded: fold.isFolded,
-          );
-        }
-      } catch (e) {
-        // Non-fatal: ensure fold toggle proceeds even if LayoutMap update fails.
-        debugPrint('LayoutMap update on fold toggle failed: $e');
-      }
+      _rebuildLayoutMap();
       _foldedLineCacheDirty = true;
       _lineOffsetCache.clear();
       _caretInfoCache.clear();
@@ -5738,6 +5778,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       for (var f in _foldRanges.values.where((f) => f != null))
         f!.startIndex: f,
     };
+    _rebuildLayoutMap();
     _foldedLineCacheDirty = true;
     _lineOffsetCache.clear();
     _caretInfoCache.clear();
@@ -5768,6 +5809,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       for (var f in _foldRanges.values.where((f) => f != null))
         f!.startIndex: f,
     };
+    _rebuildLayoutMap();
     _foldedLineCacheDirty = true;
     _lineOffsetCache.clear();
     _caretInfoCache.clear();
@@ -5801,6 +5843,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
           for (var f in _foldRanges.values.where((f) => f != null))
             f!.startIndex: f,
         };
+        _rebuildLayoutMap();
         _foldedLineCacheDirty = true;
         _lineOffsetCache.clear();
         _hasCachedHeight = false;
@@ -7834,6 +7877,37 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       return visibleLineTexts[visibleIndex];
     }
 
+    double measureLeadingIndentWidth(String lineText, int leadingColumns) {
+      if (leadingColumns <= 0 || lineText.isEmpty) return 0;
+
+      int consumedColumns = 0;
+      int endIndex = 0;
+
+      while (endIndex < lineText.length && consumedColumns < leadingColumns) {
+        final ch = lineText[endIndex];
+        if (ch == ' ') {
+          consumedColumns += 1;
+        } else if (ch == '\t') {
+          consumedColumns = tabSize <= 0
+              ? consumedColumns + 1
+              : consumedColumns + (tabSize - (consumedColumns % tabSize));
+        } else {
+          break;
+        }
+        endIndex++;
+      }
+
+      if (endIndex == 0) return 0;
+
+      final indentString = lineText.substring(0, endIndex);
+      final builder = ui.ParagraphBuilder(_paragraphStyle)
+        ..pushStyle(_uiTextStyle)
+        ..addText(indentString);
+      final spacePara = builder.build();
+      spacePara.layout(const ui.ParagraphConstraints(width: double.infinity));
+      return spacePara.maxIntrinsicWidth;
+    }
+
     void addBlock({
       required int startLine,
       required int endLine,
@@ -7858,16 +7932,7 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
 
       double guideX = 0;
       if (leadingColumns > 0) {
-        final indentString = lineText.substring(
-          0,
-          leadingColumns.clamp(0, lineText.length),
-        );
-        final builder = ui.ParagraphBuilder(_paragraphStyle)
-          ..pushStyle(_uiTextStyle)
-          ..addText(indentString);
-        final spacePara = builder.build();
-        spacePara.layout(const ui.ParagraphConstraints(width: double.infinity));
-        guideX = spacePara.maxIntrinsicWidth;
+        guideX = measureLeadingIndentWidth(lineText, leadingColumns);
       }
 
       final block = (
@@ -7895,6 +7960,26 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       }
     }
 
+    final rustBlocks = guidesComputeViewport(
+      rope: controller.rope.core,
+      firstVisible: BigInt.from(firstVisibleLine),
+      lastVisible: BigInt.from(lastVisibleLine),
+      tabSize: BigInt.from(tabSize),
+    );
+
+    for (final b in rustBlocks) {
+      final lineText = _lineTextCache[b.startLine] ?? lineTextAt(b.startLine);
+      _lineTextCache[b.startLine] = lineText;
+
+      addBlock(
+        startLine: b.startLine,
+        endLine: b.endLine,
+        leadingColumns: b.leadingSpaces,
+        indentLevel: b.indentLevel,
+        lineText: lineText,
+      );
+    }
+
     if (foldedGuideCandidates.isNotEmpty) {
       for (final entry in foldedGuideCandidates.entries) {
         final lineIndex = entry.key;
@@ -7903,10 +7988,17 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
         final lineText = _lineTextCache[lineIndex] ?? lineTextAt(lineIndex);
         _lineTextCache[lineIndex] = lineText;
 
-        final leadingSpaces = lineText.length - lineText.trimLeft().length;
+        final alreadyAdded = blocks.any(
+          (block) => block.startLine == lineIndex,
+        );
+        if (alreadyAdded) {
+          continue;
+        }
+
+        final leadingColumns = _measureLeadingIndentColumns(lineText);
         final indentLevel = _lineIndentCache.containsKey(lineIndex)
             ? _lineIndentCache[lineIndex]!
-            : leadingSpaces ~/ tabSize;
+            : (tabSize > 0 ? leadingColumns ~/ tabSize : leadingColumns);
         if (!_lineIndentCache.containsKey(lineIndex)) {
           _lineIndentCache[lineIndex] = indentLevel;
         }
@@ -7914,28 +8006,8 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
         addBlock(
           startLine: lineIndex,
           endLine: fold.endIndex + 1,
-          leadingColumns: leadingSpaces,
+          leadingColumns: leadingColumns,
           indentLevel: indentLevel,
-          lineText: lineText,
-        );
-      }
-    } else {
-      final rustBlocks = guidesComputeViewport(
-        rope: controller.rope.core,
-        firstVisible: BigInt.from(firstVisibleLine),
-        lastVisible: BigInt.from(lastVisibleLine),
-        tabSize: BigInt.from(tabSize),
-      );
-
-      for (final b in rustBlocks) {
-        final lineText = _lineTextCache[b.startLine] ?? lineTextAt(b.startLine);
-        _lineTextCache[b.startLine] = lineText;
-
-        addBlock(
-          startLine: b.startLine,
-          endLine: b.endLine,
-          leadingColumns: b.leadingSpaces,
-          indentLevel: b.indentLevel,
           lineText: lineText,
         );
       }

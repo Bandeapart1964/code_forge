@@ -1,3 +1,9 @@
+<p align="left">
+  <a href="./README.md">English</a> |
+  <a href="./README.zh-CN.md">简体中文</a> |
+  <a href="./README.es.md">Español</a>
+</p>
+
 <h1 align="center">CodeForge</h1>
 
 <p align="center">
@@ -30,7 +36,10 @@
 ---
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/heckmon/code_forge/refs/heads/main/gifs/code_forge_100k.gif" alt="CodeForge Demo" width="800"/><sub><br>large code support (tested with 100k+ lines) and LSP based intelligent lazy highlighting</sub>
+  <img src="https://raw.githubusercontent.com/heckmon/code_forge/refs/heads/main/gifs/1M.gif" alt="CodeForge Demo" width="800"/><sub><br>Smooth editing in 1M+ lines of code, tested on a decades old low end PC with pentium dual core CPU and no dedicated graphics card.</sub>
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/heckmon/code_forge/refs/heads/main/gifs/code_forge_100k.gif" alt="CodeForge Demo" width="800"/><sub><br>LSP based intelligent lazy highlighting on 100k+ lines</sub>
 </p>
 
 ### Feature demos: [CodeForge Features Showcase](https://heckmon.github.io/code_forge_demo/)
@@ -39,20 +48,11 @@
 >
 > code_forge does **not** support Flutter web, as it relies on `dart:io` for core functionality. Use [code_forge_web](https://pub.dev/packages/code_forge_web) for web support.
 
-## What's new in 10.0.0:
-  - ### Migrated the backend from dart to rust:
-      - Uses [ropey](https://crates.io/crates/ropey) crate for text storage.
-      - Introduced [SumTree](https://zed.dev/blog/zed-decoded-rope-sumtree) data structure to store line details using the [zed-sum-tree](https://crates.io/crates/zed-sum-tree) crate, used by the [Zed editor](https://zed.dev/).
-      - Bidi support has been enhanced using the [unicode-bidi](https://crates.io/crates/unicode-bidi?utm_source=chatgpt.com) crate for RTL languages.
-      - Bracket pair calculation, fold range calculation, etc has been moved to rust side.
-  - FEATURE: Line number index in scrollbar.
-  - FEATURE: New `ScrollbarDecoration` API to customize the scroll bar.
-  - FEATURE: Code action bulb icon now shows on the line start.
-  - API CHANGE: `enableSuggestions` has been changed to `enableLocalSuggestions` and default value is false. This API cannot be used to disable LSP suggestions. Use `capabilities` field in the `LspConfig` instead.
-  - FIX: [#72](https://github.com/heckmon/code_forge/issues/72)
-  <p align="center">
-    <img src="https://raw.githubusercontent.com/heckmon/code_forge/refs/heads/main/gifs/1M.gif" alt="CodeForge Demo" width="800"/><sub><br>Smooth editing in 1M+ lines of code, tested on a decades old low end PC with pentium dual core CPU and no dedicated graphics card.</sub>
-  </p>
+## What's new in 10.1.0:
+  - FIX: [#76](https://github.com/heckmon/code_forge/issues/76)
+  - FIX: Semantic highlight flicker on backspace.
+  - FIX: Fold bug on indentation based languages
+  - FEATURE: Added chinese and spanish translation on README
 
 
 > [!NOTE]
@@ -64,17 +64,17 @@
 
 **CodeForge** is a next-generation code editor widget designed for developers who demand more. Whether you're building an IDE, a code snippet viewer, or an educational coding platform, CodeForge delivers:
 
-
 | Feature | CodeForge | Others |
 |---------|:---------:|:------:|
 | Syntax Highlighting | 180+ languages<br>[Availabe languages](https://github.com/reqable/re-highlight/tree/main/lib/languages) | ✅ |
-| Code Folding | Smart detection | ⚠️ Limited |
+| Code Folding | Smart detection |  Limited |
 | LSP Integration | Full support | ❌ |
 | AI Completion | Multi-model | ❌ |
 | Semantic Tokens | Real-time | ❌ |
 | Diagnostics | Inline errors | ❌ |
-| Undo/Redo | Smart grouping | ⚠️ Basic |
-| Full Theming |[Available themes](https://github.com/reqable/re-highlight/tree/main/lib/styles) | ⚠️ Limited |
+| Undo/Redo | Smart grouping | Basic |
+| Full Theming |[Available themes](https://github.com/reqable/re-highlight/tree/main/lib/styles) | Limited |
+
 
 ### What makes CodeForge different from other editors:
 - Uses the rope data structure instead of regular char array to to handle large text.
@@ -121,6 +121,7 @@ To see working examples of all CodeForge features including AI Code Completion, 
 - **Gutter Styling** — Colors, icons, sizes
 - **Selection Styling** — Cursor, selection, bubbles
 - **Popup Styling** — Suggestions, hover details
+- **Scrollbar Styling** — Scrollbar shape, color, line indicator.
 
 </details>
 
@@ -134,7 +135,7 @@ To see working examples of all CodeForge features including AI Code Completion, 
 
 ```yaml
 dependencies:
-  code_forge: ^10.10.0
+  code_forge: ^10.1.0
 ```
 3 . Add `await RustLib.init();` in your main function:
 ```dart

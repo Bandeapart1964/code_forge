@@ -164,6 +164,77 @@ class SyntaxHighlighter {
       _grammarCache.removeWhere((line, _) => line >= editLine);
       _mergedCache.removeWhere((line, _) => line >= editLine);
       _isEditing = false;
+    } else if (insertedText.isNotEmpty || deletedText.isNotEmpty) {
+      final lineSemanticSpans = _lineSemanticSpans[editLine];
+      if (lineSemanticSpans != null && lineSemanticSpans.isNotEmpty) {
+        final updatedLineSemanticSpans = <SemanticWordSpan>[];
+        final insertedLength = insertedText.length;
+        final deletedLength = deletedText.length;
+        final shiftDelta = insertedLength - deletedLength;
+        final insertedEnd = editStart + insertedLength;
+
+        for (final span in lineSemanticSpans) {
+          if (span.endChar <= editStart) {
+            updatedLineSemanticSpans.add(span);
+            continue;
+          }
+
+          if (span.startChar >= oldEnd) {
+            updatedLineSemanticSpans.add(
+              SemanticWordSpan(
+                startChar: span.startChar + shiftDelta,
+                endChar: span.endChar + shiftDelta,
+                word: span.word,
+                style: span.style,
+              ),
+            );
+            continue;
+          }
+
+          if (span.startChar < editStart) {
+            final leftEnd = editStart.clamp(span.startChar, span.endChar);
+            if (leftEnd > span.startChar) {
+              updatedLineSemanticSpans.add(
+                SemanticWordSpan(
+                  startChar: span.startChar,
+                  endChar: leftEnd,
+                  word: span.word.substring(0, leftEnd - span.startChar),
+                  style: span.style,
+                ),
+              );
+            }
+          }
+
+          if (span.endChar > oldEnd) {
+            final rightStart = insertedEnd;
+            final rightEnd = span.endChar + shiftDelta;
+            if (rightEnd > rightStart) {
+              final rightWordStart =
+                  (span.word.length - (span.endChar - oldEnd)).clamp(
+                    0,
+                    span.word.length,
+                  );
+              updatedLineSemanticSpans.add(
+                SemanticWordSpan(
+                  startChar: rightStart,
+                  endChar: rightEnd,
+                  word: span.word.substring(rightWordStart),
+                  style: span.style,
+                ),
+              );
+            }
+          }
+        }
+
+        updatedLineSemanticSpans.sort(
+          (a, b) => a.startChar == b.startChar
+              ? a.endChar.compareTo(b.endChar)
+              : a.startChar.compareTo(b.startChar),
+        );
+        _lineSemanticSpans[editLine] = updatedLineSemanticSpans;
+      }
+
+      _isEditing = false;
     } else {
       _isEditing = true;
     }
