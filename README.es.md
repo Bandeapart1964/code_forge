@@ -45,11 +45,8 @@
 >
 > code_forge **no** es compatible con Flutter web porque depende de `dart:io` para funciones principales. Para web, usa [code_forge_web](https://pub.dev/packages/code_forge_web).
 
-## Novedades en 10.1.0
-- Arreglo: [#76](https://github.com/heckmon/code_forge/issues/76)
-- Arreglo: Parpadeo del resaltado semantico al borrar con backspace
-- Arreglo: Error de plegado en lenguajes basados en indentacion
-- Nuevo: Traducciones al chino y al espanol del README
+## Novedades en 10.2.0
+- Arreglo: [#45](https://github.com/heckmon/code_forge/issues/45)
 
 ## Por que CodeForge?
 
@@ -82,7 +79,7 @@
 
 ```yaml
 dependencies:
-  code_forge: ^10.1.0
+  code_forge: ^10.2.0
 ```
 
 3. Agrega la inicializacion en `main()`:

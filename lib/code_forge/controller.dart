@@ -2709,10 +2709,7 @@ class CodeForgeController implements DeltaTextInputClient {
 
   int _localImeOffsetToGlobal(int localOffset) {
     _ensureImeProjection();
-    final result = (_imeProjectionStartOffset + localOffset).clamp(
-      0,
-      length,
-    );
+    final result = (_imeProjectionStartOffset + localOffset).clamp(0, length);
     return result;
   }
 

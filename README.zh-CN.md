@@ -45,11 +45,8 @@
 >
 > code_forge **不支持** Flutter Web，因为核心功能依赖 `dart:io`。如需 Web 支持，请使用 [code_forge_web](https://pub.dev/packages/code_forge_web)。
 
-## 10.1.0 更新内容
-- 修复: [#76](https://github.com/heckmon/code_forge/issues/76)
-- 修复: 回退（Backspace）时语义高亮闪烁
-- 修复: 基于缩进语言的代码折叠问题
-- 新增: README 中文与西班牙语翻译
+## 10.2.0 更新内容
+- 修复: [#45](https://github.com/heckmon/code_forge/issues/45)
 
 ## 为什么选择 CodeForge?
 
@@ -82,7 +79,7 @@
 
 ```yaml
 dependencies:
-  code_forge: ^10.1.0
+  code_forge: ^10.2.0
 ```
 
 3. 在 `main()` 中添加初始化:

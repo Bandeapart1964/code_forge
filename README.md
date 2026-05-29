@@ -48,11 +48,8 @@
 >
 > code_forge does **not** support Flutter web, as it relies on `dart:io` for core functionality. Use [code_forge_web](https://pub.dev/packages/code_forge_web) for web support.
 
-## What's new in 10.1.0:
-  - FIX: [#76](https://github.com/heckmon/code_forge/issues/76)
-  - FIX: Semantic highlight flicker on backspace.
-  - FIX: Fold bug on indentation based languages
-  - FEATURE: Added chinese and spanish translation on README
+## What's new in 10.2.0:
+  - FIX: [#45](https://github.com/heckmon/code_forge/issues/45)
 
 
 > [!NOTE]
@@ -135,7 +132,7 @@ To see working examples of all CodeForge features including AI Code Completion, 
 
 ```yaml
 dependencies:
-  code_forge: ^10.1.0
+  code_forge: ^10.2.0
 ```
 3 . Add `await RustLib.init();` in your main function:
 ```dart

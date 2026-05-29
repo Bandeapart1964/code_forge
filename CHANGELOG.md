@@ -417,3 +417,6 @@ This release establishes **CodeForge** as a powerful, production-ready code edit
   - FIX: Semantic highlight flicker on backspace.
   - FIX: Fold bug on indentation based languages
   - FEATURE: Added chinese and spanish translation on README
+
+## 10.2.0
+  - FIX: [#45](https://github.com/heckmon/code_forge/issues/45)
