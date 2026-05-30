@@ -3262,59 +3262,67 @@ class CodeForgeController implements DeltaTextInputClient {
     if (readOnly) return;
 
     _suppressImeSync = true;
-    _ensureImeProjection();
-    _beginImeCompositionUndoGroup(
-      value.composing.isValid && !value.composing.isCollapsed,
-    );
-
-    final currentText = _imeProjectionText;
-    final nextText = value.text;
-
-    if (currentText != nextText) {
-      int prefixLength = 0;
-      final maxPrefix = currentText.length < nextText.length
-          ? currentText.length
-          : nextText.length;
-      while (prefixLength < maxPrefix &&
-          currentText.codeUnitAt(prefixLength) ==
-              nextText.codeUnitAt(prefixLength)) {
-        prefixLength++;
-      }
-
-      int suffixLength = 0;
-      final currentTail = currentText.length - prefixLength;
-      final nextTail = nextText.length - prefixLength;
-      while (suffixLength < currentTail &&
-          suffixLength < nextTail &&
-          currentText.codeUnitAt(currentText.length - suffixLength - 1) ==
-              nextText.codeUnitAt(nextText.length - suffixLength - 1)) {
-        suffixLength++;
-      }
-
-      final replaceStart = _imeProjectionStartOffset + prefixLength;
-      final replaceEnd =
-          _imeProjectionStartOffset + currentText.length - suffixLength;
-      final replacement = nextText.substring(
-        prefixLength,
-        nextText.length - suffixLength,
+    try {
+      _ensureImeProjection();
+      _beginImeCompositionUndoGroup(
+        value.composing.isValid && !value.composing.isCollapsed,
       );
 
-      replaceRange(replaceStart, replaceEnd, replacement);
-    }
+      final currentText = _imeProjectionText;
+      final nextText = value.text;
 
-    _selection = _localImeSelectionToGlobal(value.selection);
-    _imeProjectionDirty = true;
-    dirtyRegion = TextRange(start: 0, end: _rope.length);
-    dirtyLine = null;
-    _trackImeComposing(
-      value.composing,
-      value.selection.isValid
-          ? value.selection.extentOffset
-          : value.composing.end,
-    );
-    _endImeCompositionUndoGroupIfIdle();
-    _suppressImeSync = false;
-    notifyListeners();
+      if (currentText != nextText) {
+        int prefixLength = 0;
+        final maxPrefix = currentText.length < nextText.length
+            ? currentText.length
+            : nextText.length;
+        while (prefixLength < maxPrefix &&
+            currentText.codeUnitAt(prefixLength) ==
+                nextText.codeUnitAt(prefixLength)) {
+          prefixLength++;
+        }
+
+        int suffixLength = 0;
+        final currentTail = currentText.length - prefixLength;
+        final nextTail = nextText.length - prefixLength;
+        while (suffixLength < currentTail &&
+            suffixLength < nextTail &&
+            currentText.codeUnitAt(currentText.length - suffixLength - 1) ==
+                nextText.codeUnitAt(nextText.length - suffixLength - 1)) {
+          suffixLength++;
+        }
+
+        final replaceStart = _imeProjectionStartOffset + prefixLength;
+        final replaceEnd =
+            _imeProjectionStartOffset + currentText.length - suffixLength;
+        final replacement = nextText.substring(
+          prefixLength,
+          nextText.length - suffixLength,
+        );
+
+        _handleReplacement(
+          TextRange(start: replaceStart, end: replaceEnd),
+          replacement,
+          _localImeSelectionToGlobal(value.selection),
+        );
+      } else {
+        _selection = _localImeSelectionToGlobal(value.selection);
+      }
+
+      _imeProjectionDirty = true;
+      dirtyRegion = TextRange(start: 0, end: _rope.length);
+      dirtyLine = null;
+      _trackImeComposing(
+        value.composing,
+        value.selection.isValid
+            ? value.selection.extentOffset
+            : value.composing.end,
+      );
+      _endImeCompositionUndoGroupIfIdle();
+      notifyListeners();
+    } finally {
+      _suppressImeSync = false;
+    }
   }
 
   @protected
