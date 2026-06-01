@@ -11255,8 +11255,9 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
     if (event is PointerUpEvent || event is PointerCancelEvent) {
       if (!_isDragging && isMobile && !_selectionActive) {
         controller.selection = TextSelection.collapsed(offset: textOffset);
-        if (controller.connection?.attached ?? false)
+        if (controller.connection?.attached ?? false) {
           controller.connection?.show();
+        }
       }
 
       _draggingStartHandle = false;

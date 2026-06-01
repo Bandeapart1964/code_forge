@@ -427,3 +427,6 @@ This release establishes **CodeForge** as a powerful, production-ready code edit
 
 ## 10.4.0
   - FIX: Fixed focus bug in mobile.
+
+## 10.4.1
+  - FIX: Syntax warning.
