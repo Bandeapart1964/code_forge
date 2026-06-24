@@ -5465,12 +5465,16 @@ class _CodeFieldRenderer extends RenderBox implements MouseTrackerAnnotation {
       if (!_isFoldToggleInProgress) {
         _ensureCaretVisible();
       }
-      if (controller.contentVersion == _lastProcessedContentVersion) {
-        // Pure overlay change (e.g. more pinyin letters); the document did not
-        // change, so just repaint the overlay.
-        markNeedsPaint();
-        return;
-      }
+      // even content maybe not change, but ime need re-compositing, if return at here, the text composing can be wrong, it will cause data lose or cursor can not move, the bug usually occur on the phone when text decoration by a under score line.
+      // if (controller.contentVersion == _lastProcessedContentVersion) {
+      //   // Pure overlay change (e.g. more pinyin letters); the document did not
+      //   // change, so just repaint the overlay.
+      //   markNeedsPaint();
+      //   return;
+      // }
+
+      markNeedsPaint();
+
       // The composition also changed the document (a commit, or a selection
       // replacement at composition start). Clear the lightweight repaint flags
       // so neither the selectionOnly nor the bufferNeedsRepaint branch below
