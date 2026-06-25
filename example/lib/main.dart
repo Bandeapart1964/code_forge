@@ -58,19 +58,21 @@ class _MyAppState extends State<MyApp> {
           child: FutureBuilder<LspConfig>(
             future: getLsp(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+              // if (snapshot.connectionState == ConnectionState.waiting) {
+              //   return const Center(child: CircularProgressIndicator());
+              // }
 
-              if (!snapshot.hasData) {
-                return const Center(child: Text("Failed to load LSP"));
-              }
+              // if (!snapshot.hasData) {
+              //   return const Center(child: Text("Failed to load LSP"));
+              // }
 
-              final lspConfig = snapshot.data!;
-              if (codeController == null ||
-                  codeController!.lspConfig != lspConfig) {
-                codeController = CodeForgeController(lspConfig: lspConfig);
-              }
+              // final lspConfig = snapshot.data!;
+              // if (codeController == null ||
+              //     codeController!.lspConfig != lspConfig) {
+              //   codeController = CodeForgeController(lspConfig: lspConfig);
+              // }
+              codeController = CodeForgeController();
+
 
               return CodeForge(
                 undoController: undoController,
@@ -78,7 +80,8 @@ class _MyAppState extends State<MyApp> {
                 editorTheme: githubDarkTheme,
                 controller: codeController,
                 textStyle: GoogleFonts.jetBrainsMono(),
-                filePath: absFilePath,
+                // filePath: absFilePath,
+                initialText: "import dart.io",
                 tabSize: 4,
                 matchHighlightStyle: const MatchHighlightStyle(
                   currentMatchStyle: TextStyle(
